@@ -27,6 +27,7 @@ extension PlayerView {
         var pipController: AVPictureInPictureController?
         var pipPossibleObservation: NSKeyValueObservation?
         var isPlaying = true
+        var layer: AVPlayerLayer
         @Published
         public var pipPossible: Bool = false
         
@@ -45,15 +46,16 @@ extension PlayerView {
         
         init(player: AVPlayer) {
             self.player = player
+            let layer = AVPlayerLayer(player: player)
+            self.layer = layer
             super.init()
             
             if AVPictureInPictureController.isPictureInPictureSupported() {
-                let layer = AVPlayerLayer(player: player)
                 pipController = AVPictureInPictureController(playerLayer: layer)
                 pipController?.delegate = self
                 
                 // Observe the PiP possibility and update pipState.isPossible
-                pipPossibleObservation = pipController!.observe(
+                pipPossibleObservation = pipController?.observe(
                     \.isPictureInPicturePossible,
                      options: [.initial, .new]
                 ) { [weak self] _, change in
@@ -110,9 +112,8 @@ extension PlayerView {
     
     func makeUIView(context: Context) -> UIView {
         let view = PlayerUIView()
-        let player = context.coordinator.player
-        view.playerLayer.player = player
-        player.play()
+        view.playerLayer = context.coordinator.layer
+        view.layer.addSublayer(view.playerLayer)
         return view
     }
     
@@ -121,12 +122,10 @@ extension PlayerView {
 
 class PlayerUIView: UIView {
     
-    var playerLayer: AVPlayerLayer
+    var playerLayer: AVPlayerLayer!
     
     override init(frame: CGRect) {
-        self.playerLayer = AVPlayerLayer()
         super.init(frame: frame)
-        self.layer.addSublayer(playerLayer)
     }
     
     required init?(coder: NSCoder) {
@@ -175,6 +174,17 @@ struct ContentView: View {
 
 
             pipButton
+        }.onAppear {
+            /**
+             Sometimes deferring the call to player.play() until
+             after the SwiftUI view hierarchy has settled (e.g.,
+             using a small DispatchQueue.main.asyncAfter)
+             can help confirm if it’s purely a timing issue.
+             */
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                coordinator.play()
+                debugPrint("called play")
+            }
         }
     }
     
