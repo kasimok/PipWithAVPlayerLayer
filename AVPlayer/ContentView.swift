@@ -4,6 +4,11 @@
 //
 //  Created by 0x67 on 2025-01-09.
 //
+#if canImport(UIKit)
+import UIKit
+#else
+import AppKit
+#endif
 
 import SwiftUI
 import AVKit
@@ -52,6 +57,9 @@ extension PlayerView {
             
             if AVPictureInPictureController.isPictureInPictureSupported() {
                 pipController = AVPictureInPictureController(playerLayer: layer)
+#if os(iOS)
+                pipController?.canStartPictureInPictureAutomaticallyFromInline = true
+#endif
                 pipController?.delegate = self
                 
                 // Observe the PiP possibility and update pipState.isPossible
@@ -110,6 +118,8 @@ extension PlayerView {
         return coordinator
     }
     
+#if canImport(UIKit)
+    public typealias UIViewType = UIView
     func makeUIView(context: Context) -> UIView {
         let view = PlayerUIView()
         view.playerLayer = context.coordinator.layer
@@ -118,6 +128,18 @@ extension PlayerView {
     }
     
     func updateUIView(_ uiView: UIView, context: Context) { }
+#else
+    public typealias NSViewType = UIView
+    func makeNSView(context: Context) -> UIView {
+        let view = PlayerUIView()
+        view.wantsLayer = true
+        view.playerLayer = context.coordinator.layer
+        view.layer!.addSublayer(view.playerLayer)
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSViewType, context: Context) {}
+#endif
 }
 
 class PlayerUIView: UIView {
@@ -131,11 +153,18 @@ class PlayerUIView: UIView {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
+#if canImport(UIKit)
     override func layoutSubviews() {
         super.layoutSubviews()
         playerLayer.frame = self.bounds
     }
+#else
+    override func layout() {
+        super.layout()
+        playerLayer.frame = self.bounds
+    }
+#endif
 }
 
 struct ContentView: View {
@@ -171,8 +200,8 @@ struct ContentView: View {
                 }
                 Spacer()
             }.foregroundStyle(.white)
-
-
+            
+            
             pipButton
         }.onAppear {
             /**
